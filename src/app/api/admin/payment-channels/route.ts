@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllPaymentChannels, savePaymentChannel, updatePaymentChannelStatus, getPaymentChannelByCode } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-auth';
 
 // GET - 获取所有支付渠道（敏感字段脱敏）
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const authErr = requireAdmin(req); if (authErr) return authErr;
   try {
     const channels = getAllPaymentChannels().map(c => ({
       ...c,
@@ -16,6 +18,7 @@ export async function GET() {
 
 // PUT - 保存支付渠道配置
 export async function PUT(req: NextRequest) {
+  const authErr = requireAdmin(req); if (authErr) return authErr;
   try {
     const body = await req.json();
     const { channelCode, channelName, appId, merchantId, gatewayUrl, notifyUrl, returnUrl, configJson, status } = body;
@@ -46,6 +49,7 @@ export async function PUT(req: NextRequest) {
 
 // PATCH - 切换状态
 export async function PATCH(req: NextRequest) {
+  const authErr = requireAdmin(req); if (authErr) return authErr;
   try {
     const body = await req.json();
     const { channelCode, status } = body;

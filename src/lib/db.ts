@@ -163,6 +163,52 @@ export function deductPoints(userId: string, points: number, remark: string): { 
   return { success: true, balance: row.balancePoints };
 }
 
+
+export function freezePoints(userId: string, points: number, remark: string): { success: boolean; balance: number; frozen: number; error?: string } {
+  const rows = readTable<UserPointsRow>('user_points');
+  let row = rows.find(r => r.userId === userId);
+  if (!row) return { success: false, balance: 0, frozen: 0, error: '账户不存在' };
+  if (row.balancePoints < points) return { success: false, balance: row.balancePoints, frozen: 0, error: '点数不足' };
+
+  row.balancePoints -= points;
+  row.updatedAt = new Date().toISOString();
+
+  // 冻结流水
+  const logs = readTable<PointLogRow>('point_logs');
+  logs.push({
+    id: 'plog-' + Date.now(),
+    userId, changePoints: -points, type: 'generate_image', remark: remark + ' [冻结]',
+    createdAt: new Date().toISOString(),
+  });
+  writeTable('point_logs', logs);
+
+  const idx = rows.findIndex(r => r.userId === userId);
+  rows[idx] = row;
+  writeTable('user_points', rows);
+
+  return { success: true, balance: row.balancePoints, frozen: points };
+}
+
+export function unfreezePoints(userId: string, points: number, remark: string): void {
+  const rows = readTable<UserPointsRow>('user_points');
+  let row = rows.find(r => r.userId === userId);
+  if (!row) return;
+  row.balancePoints += points;
+  row.updatedAt = new Date().toISOString();
+
+  const logs = readTable<PointLogRow>('point_logs');
+  logs.push({
+    id: 'plog-' + Date.now(),
+    userId, changePoints: points, type: 'refund', remark: remark + ' [解冻返还]',
+    createdAt: new Date().toISOString(),
+  });
+  writeTable('point_logs', logs);
+
+  const idx = rows.findIndex(r => r.userId === userId);
+  rows[idx] = row;
+  writeTable('user_points', rows);
+}
+
 export function refundPoints(userId: string, points: number, remark: string): void {
   const rows = readTable<UserPointsRow>('user_points');
   let row = rows.find(r => r.userId === userId);

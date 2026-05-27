@@ -73,7 +73,7 @@ export default function WalletPage() {
     try {
       const r = await window.fetch('/api/recharge/create', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, points: pkg.points, price: pkg.price, payChannel: selectedChannel }),
+        body: JSON.stringify({ userId, packageId: pkg.id, payChannel: selectedChannel }),
       });
       const d = await r.json();
       if (d.success) {
