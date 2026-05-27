@@ -10,18 +10,18 @@ const CONFIG_PATH = '/tmp/jiaotu_data/cms_config.json';
 const defaultConfig = {
   // 站点信息
   site: {
-    name: '椒图AI',
+    name: '造境 AI',
     slogan: '中文AI修图神器',
     description: '免费在线AI修图工具，中文指令一键修图。支持电商设计、虚拟试衣、照片修复、背景处理、抠图扩图、高清放大、AI视频生成。',
-    keywords: '椒图AI,AI修图,电商套图,AI抠图,AI扩图,虚拟试衣,证件照制作,照片修复,AI视频',
-    logo: '椒图AI',
-    footer: '© 2025 椒图AI · All Rights Reserved.',
+    keywords: '造境 AI,AI修图,电商套图,AI抠图,AI扩图,虚拟试衣,证件照制作,照片修复,AI视频',
+    logo: '造境 AI',
+    footer: '© 2025 造境 AI · All Rights Reserved.',
   },
 
   // 首页 Hero
   hero: {
-    badge: '椒图AI v2.0 · 全功能在线',
-    heading: '修图，就用椒图AI',
+    badge: '造境 AI v2.0 · 全功能在线',
+    heading: '修图，就用造境 AI',
     subheading: '让每个人都能轻松创作出专业级图片和视频',
     desc: '搭载自研视觉大模型，中文指令一键修图。电商设计、虚拟试衣、照片修复、AI视频，零基础上手',
     inputPlaceholder: '> 描述你想要的效果，或上传图片开始创作...',

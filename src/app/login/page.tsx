@@ -43,7 +43,7 @@ export default function LoginPage() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20">
               <Cpu className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">椒图AI</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">造境 AI</span>
           </Link>
           <h1 className="text-2xl font-bold text-slate-800 mb-1">欢迎回来</h1>
           <p className="text-sm text-slate-500">登录你的账号继续创作</p>

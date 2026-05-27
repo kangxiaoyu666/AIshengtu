@@ -18,7 +18,6 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [points, setPoints] = useState(0);
   const [scrolled, setScrolled] = useState(false);
-  const isHome = pathname === '/';
 
   const refreshPoints = () => setPoints(getWallet().points);
   useEffect(() => { refreshPoints(); const h = () => refreshPoints(); window.addEventListener('wallet-changed', h); return () => window.removeEventListener('wallet-changed', h); }, []);
@@ -31,18 +30,16 @@ export default function Navbar() {
 
   return (
     <nav className={`fixed inset-x-0 top-0 z-50 h-16 transition-all duration-300 ${
-      isHome
-        ? scrolled
-          ? 'bg-white/80 backdrop-blur-xl border-b border-slate-200/60 shadow-sm'
-          : 'bg-transparent'
-        : 'bg-white/90 backdrop-blur-xl border-b border-slate-200/80 shadow-sm'
+      scrolled
+        ? 'bg-white/85 backdrop-blur-xl border-b border-slate-200/60 shadow-sm'
+        : 'bg-transparent'
     }`}>
-      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-6">
+      <div className="mx-auto flex h-full max-w-[1360px] items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-md shadow-blue-500/25 group-hover:shadow-lg group-hover:scale-105 transition-all">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center shadow-md shadow-blue-400/20 group-hover:shadow-lg group-hover:scale-105 transition-all">
             <Cpu className="h-5 w-5 text-white" />
           </div>
-          <span className={`text-lg font-extrabold tracking-tight ${isHome && !scrolled ? 'text-white' : 'bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'}`}>椒图AI</span>
+          <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">造境 AI</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-1">
@@ -52,9 +49,7 @@ export default function Navbar() {
             return (
               <Link key={link.href} href={link.href}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  active
-                    ? isHome && !scrolled ? 'bg-white/10 text-white' : 'bg-blue-50 text-blue-600'
-                    : isHome && !scrolled ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  active ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                 }`}><Icon className="h-4 w-4" />{link.label}</Link>
             );
           })}
@@ -62,22 +57,18 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2">
           <Link href="/wallet"
-            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${
-              isHome && !scrolled
-                ? 'bg-white/10 text-amber-300 border border-white/10 hover:bg-white/20'
-                : 'bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100'
-            }`}>
-            <Coins className="h-3.5 w-3.5" /><span>{points.toLocaleString()}</span><Plus className="h-3 w-3" /></Link>
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 hover:bg-amber-100 transition-all text-sm font-semibold">
+            <Coins className="h-3.5 w-3.5" /><span>{points.toLocaleString()}</span><Plus className="h-3 w-3 text-amber-400" /></Link>
 
           <Button onClick={() => router.push('/studio')}
-            className="hidden md:inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 h-9 px-5 shadow-md shadow-blue-500/20 font-semibold text-sm">
+            className="hidden md:inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-400 to-purple-500 hover:from-blue-500 hover:to-purple-600 text-white border-0 h-9 px-5 shadow-md shadow-blue-400/20 font-semibold text-sm">
             <Zap className="h-4 w-4" />开始创作</Button>
 
           <Button variant="ghost" onClick={() => router.push('/login')}
-            className={`hidden md:inline-flex rounded-xl h-9 ${isHome && !scrolled ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'}`}>
+            className="hidden md:inline-flex rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-9">
             <LogIn className="h-4 w-4 mr-1.5" />登录</Button>
 
-          <button onClick={() => setMobileOpen(!mobileOpen)} className={`md:hidden p-2 rounded-xl ${isHome && !scrolled ? 'text-white hover:bg-white/10' : 'hover:bg-slate-100 text-slate-500'}`}>
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 rounded-xl hover:bg-slate-100 text-slate-500">
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
         </div>
       </div>

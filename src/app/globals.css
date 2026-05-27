@@ -31,22 +31,19 @@
 }
 
 :root {
-  /* 深色外层背景 */
-  --background: #0a0e1a;
-  --foreground: #e2e8f0;
-  /* 浅色内容卡片 */
+  --background: #f4f7ff;
+  --foreground: #1e293b;
   --card: #ffffff;
   --card-foreground: #1e293b;
   --popover: #ffffff;
   --popover-foreground: #1e293b;
-  /* 蓝紫主色 */
   --primary: #4f7bff;
   --primary-foreground: #ffffff;
-  --secondary: #f4f6ff;
+  --secondary: #eef2ff;
   --secondary-foreground: #334155;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
-  --accent: #eef1ff;
+  --accent: #e8eeff;
   --accent-foreground: #4f7bff;
   --destructive: #ef4444;
   --border: #e2e8f0;
@@ -54,25 +51,22 @@
   --ring: #4f7bff;
 }
 
-/* ==============================================
-   Keyframes
-   ============================================== */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-8px); }
 }
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(79,123,255,0.08); }
-  50% { box-shadow: 0 0 40px rgba(79,123,255,0.16); }
-}
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%, 100% { box-shadow: 0 0 20px rgba(79,123,255,0.06); }
+  50% { box-shadow: 0 0 40px rgba(79,123,255,0.12); }
 }
 @keyframes gradient-flow {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
+}
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateX(50px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(50px) rotate(-360deg); }
 }
 
 @layer base {
@@ -86,79 +80,60 @@
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 2px; }
 
 /* ==============================================
-   外层深色背景装饰
+   浅色科技背景
    ============================================== */
-.bg-outer-dark {
-  background: linear-gradient(160deg, #0a0e1a 0%, #0f1425 30%, #0d1230 60%, #0a0e1a 100%);
+.bg-page {
+  background: linear-gradient(180deg, #f4f7ff 0%, #fafbff 30%, #f0f4ff 100%);
 }
-.bg-grid-subtle {
+.bg-grid-light {
   background-image:
-    linear-gradient(rgba(79,123,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79,123,255,0.03) 1px, transparent 1px);
+    linear-gradient(rgba(79,123,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79,123,255,0.04) 1px, transparent 1px);
   background-size: 60px 60px;
 }
-.bg-glow-top {
+.bg-hero-glow-top {
   position: relative;
 }
-.bg-glow-top::before {
+.bg-hero-glow-top::before {
   content: '';
   position: absolute;
-  top: -100px; left: 50%; transform: translateX(-50%);
-  width: 800px; height: 400px;
-  background: radial-gradient(ellipse, rgba(79,123,255,0.08) 0%, transparent 70%);
+  top: -80px; left: 50%; transform: translateX(-50%);
+  width: 900px; height: 400px;
+  background: radial-gradient(ellipse, rgba(79,123,255,0.07) 0%, transparent 70%);
   pointer-events: none;
 }
-.bg-glow-bottom {
+.bg-hero-glow-bottom {
   position: relative;
 }
-.bg-glow-bottom::after {
+.bg-hero-glow-bottom::after {
   content: '';
   position: absolute;
-  bottom: -100px; left: 50%; transform: translateX(-50%);
-  width: 600px; height: 300px;
-  background: radial-gradient(ellipse, rgba(123,97,255,0.06) 0%, transparent 70%);
+  bottom: -60px; right: 0;
+  width: 500px; height: 300px;
+  background: radial-gradient(ellipse, rgba(123,97,255,0.05) 0%, transparent 70%);
   pointer-events: none;
 }
 
 /* ==============================================
-   浅色主内容区 - 大圆角舞台卡片
+   毛玻璃主容器
    ============================================== */
-.stage-card {
-  background: linear-gradient(180deg, #ffffff 0%, #fafbff 50%, #f4f6ff 100%);
+.glass-stage {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(79,123,255,0.08);
   border-radius: 1.75rem;
-  box-shadow:
-    0 2px 8px rgba(0,0,0,0.04),
-    0 8px 32px rgba(79,123,255,0.06),
-    0 0 0 1px rgba(255,255,255,0.5) inset;
+  box-shadow: 0 2px 12px rgba(79,123,255,0.04), 0 8px 40px rgba(79,123,255,0.06);
 }
 
 /* ==============================================
-   毛玻璃卡片
+   功能卡片 - 统一风格
    ============================================== */
-.glass-card {
-  background: rgba(255,255,255,0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(79,123,255,0.1);
-  border-radius: 1.25rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.03);
-}
-.glass-card:hover {
-  background: rgba(255,255,255,0.95);
-  border-color: rgba(79,123,255,0.2);
-  box-shadow: 0 4px 20px rgba(79,123,255,0.08);
-  transform: translateY(-2px);
-}
-
-/* ==============================================
-   功能卡片矩阵
-   ============================================== */
-.func-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+.tool-card {
+  background: #ffffff;
   border: 1px solid rgba(79,123,255,0.06);
   border-radius: 1.25rem;
   padding: 1.5rem;
@@ -167,7 +142,7 @@
   position: relative;
   overflow: hidden;
 }
-.func-card::before {
+.tool-card::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -176,79 +151,33 @@
   opacity: 0;
   transition: opacity 0.3s;
 }
-.func-card:hover {
-  border-color: rgba(79,123,255,0.15);
+.tool-card:hover {
+  border-color: rgba(79,123,255,0.18);
   box-shadow: 0 8px 32px rgba(79,123,255,0.1);
   transform: translateY(-3px);
 }
-.func-card:hover::before { opacity: 1; }
-.func-card .func-icon {
+.tool-card:hover::before { opacity: 1; }
+.tool-card .tool-icon {
   width: 44px; height: 44px;
   border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 1rem;
   transition: transform 0.3s;
 }
-.func-card:hover .func-icon { transform: scale(1.1); }
-
-/* ==============================================
-   AI 助手卡片
-   ============================================== */
-.ai-assistant-card {
-  background: linear-gradient(135deg, #4f7bff 0%, #7b61ff 50%, #45c7ff 100%);
-  background-size: 200% 200%;
-  animation: gradient-flow 6s ease infinite;
-  border-radius: 1.5rem;
-  color: white;
-  position: relative;
-  overflow: hidden;
-}
-.ai-assistant-card::after {
-  content: '';
-  position: absolute;
-  top: -50%; right: -20%;
-  width: 300px; height: 300px;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-/* ==============================================
-   统计数字卡片
-   ============================================== */
-.stat-card-new {
-  background: #ffffff;
-  border: 1px solid rgba(79,123,255,0.06);
-  border-radius: 1.25rem;
-  padding: 1.5rem;
-  transition: all 0.25s;
-  position: relative;
-}
-.stat-card-new:hover {
-  border-color: rgba(79,123,255,0.15);
-  box-shadow: 0 4px 20px rgba(79,123,255,0.08);
-}
-.stat-card-new .stat-value {
-  font-size: 1.75rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #4f7bff, #7b61ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+.tool-card:hover .tool-icon { transform: scale(1.1); }
 
 /* ==============================================
    Hero 输入框
    ============================================== */
-.hero-input-wrap {
+.hero-input {
   background: #ffffff;
-  border: 2px solid rgba(79,123,255,0.12);
+  border: 2px solid rgba(79,123,255,0.1);
   border-radius: 1.5rem;
   transition: all 0.3s;
-  box-shadow: 0 4px 24px rgba(79,123,255,0.06);
+  box-shadow: 0 4px 24px rgba(79,123,255,0.05);
 }
-.hero-input-wrap:focus-within {
+.hero-input:focus-within {
   border-color: #4f7bff;
-  box-shadow: 0 4px 24px rgba(79,123,255,0.12), 0 0 60px rgba(79,123,255,0.08);
+  box-shadow: 0 4px 24px rgba(79,123,255,0.12), 0 0 60px rgba(79,123,255,0.06);
 }
 
 /* ==============================================
@@ -265,29 +194,55 @@
   background-clip: text;
   animation: gradient-flow 6s ease infinite;
 }
-.btn-primary-gradient {
+.btn-brand {
   background: linear-gradient(135deg, #4f7bff, #7b61ff);
   border: 0;
   color: white;
   font-weight: 600;
-  box-shadow: 0 4px 16px rgba(79,123,255,0.3);
+  box-shadow: 0 4px 16px rgba(79,123,255,0.25);
   transition: all 0.3s;
 }
-.btn-primary-gradient:hover {
-  box-shadow: 0 6px 24px rgba(79,123,255,0.4);
+.btn-brand:hover {
+  box-shadow: 0 6px 24px rgba(79,123,255,0.35);
   transform: translateY(-1px);
-}
-.accent-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: #ff7a45;
-  box-shadow: 0 0 6px rgba(255,122,69,0.4);
-}
-.accent-dot-blue {
-  background: #4f7bff;
-  box-shadow: 0 0 6px rgba(79,123,255,0.4);
 }
 .soft-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(79,123,255,0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(79,123,255,0.08), transparent);
+}
+
+/* ==============================================
+   AI 3D 插画区
+   ============================================== */
+.ai-illustration {
+  position: relative;
+  width: 320px; height: 320px;
+}
+.ai-core {
+  position: absolute;
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 100px; height: 100px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #4f7bff, #7b61ff);
+  box-shadow: 0 8px 40px rgba(79,123,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+  animation: glow 4s ease-in-out infinite;
+}
+.ai-ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(79,123,255,0.15);
+  transform: translate(-50%, -50%);
+}
+.ai-ring-1 { width: 180px; height: 180px; }
+.ai-ring-2 { width: 260px; height: 260px; border-color: rgba(123,97,255,0.1); }
+.ai-ring-3 { width: 340px; height: 340px; border-color: rgba(69,199,255,0.08); border-style: dashed; }
+.ai-orb {
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #4f7bff;
+  box-shadow: 0 0 8px rgba(79,123,255,0.5);
 }

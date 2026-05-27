@@ -12,7 +12,7 @@ import { Settings, Globe, HardDrive, Shield, Database, CreditCard, Key, Lock, Sa
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
-    siteName: '椒图AI', siteDesc: '中文AI修图神器',
+    siteName: '造境 AI', siteDesc: '中文AI修图神器',
     maxUploadSize: '10', maxImagesPerReq: '5',
     enableRegistration: true, enableGuestUpload: true, enableWatermark: false, enableCdn: true,
   });

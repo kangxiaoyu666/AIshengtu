@@ -9,88 +9,77 @@ import { Badge } from '@/components/ui/badge';
 import {
   Sparkles, Zap, Upload, ArrowRight, Scissors, Expand, Shirt, Camera,
   Wand2, ZoomIn, Palette, Layers, ShoppingBag, Video,
-  ChevronRight, Cpu, Activity, Shield, Globe, Brain, Star, MessageSquare, Lightbulb, Image
+  ChevronRight, Cpu, Brain, Star, MessageSquare, Image, PenTool, Grid3X3, Repeat
 } from 'lucide-react';
 
-const iconMap: Record<string, any> = {
-  ShoppingBag, Scissors, Expand, Shirt, Camera, Wand2, ZoomIn, Layers, Palette, Video, Activity, Globe, Shield
-};
-
-const quickActions = [
-  { icon: ShoppingBag, label: '生成商品主图', color: 'bg-blue-50 text-blue-500' },
-  { icon: Layers, label: '生成海报', color: 'bg-purple-50 text-purple-500' },
-  { icon: Scissors, label: '去背景', color: 'bg-cyan-50 text-cyan-500' },
-  { icon: Expand, label: 'AI 扩图', color: 'bg-indigo-50 text-indigo-500' },
-  { icon: Camera, label: '证件照', color: 'bg-pink-50 text-pink-500' },
-  { icon: Wand2, label: '一句话修图', color: 'bg-amber-50 text-amber-500' },
+const coreCapabilities = [
+  { icon: Image, title: 'AI 文生图', desc: '输入文字描述，一键生成高质量图片', gradient: 'from-blue-400 to-blue-600', bgLight: 'bg-blue-50', iconColor: 'text-blue-500' },
+  { icon: MessageSquare, title: 'AI 对话修图', desc: '用自然语言描述修改需求，AI 理解并执行', gradient: 'from-purple-400 to-purple-600', bgLight: 'bg-purple-50', iconColor: 'text-purple-500' },
+  { icon: ShoppingBag, title: 'AI 商品图', desc: '上传产品图，自动生成电商套图方案', gradient: 'from-cyan-400 to-cyan-600', bgLight: 'bg-cyan-50', iconColor: 'text-cyan-500' },
+  { icon: Layers, title: 'AI 海报设计', desc: '一句话生成精美宣传海报与视觉设计', gradient: 'from-pink-400 to-pink-600', bgLight: 'bg-pink-50', iconColor: 'text-pink-500' },
 ];
 
-const highlightTools = [
-  { icon: Image, title: 'AI 文生图', desc: '一句话生成高质量图片', color: 'from-blue-400 to-blue-600', bg: 'bg-blue-50' },
-  { icon: Wand2, title: 'AI 修图', desc: '智能修复、增强、美化', color: 'from-purple-400 to-purple-600', bg: 'bg-purple-50' },
-  { icon: ShoppingBag, title: 'AI 商品图', desc: '一键生成电商套图', color: 'from-cyan-400 to-cyan-600', bg: 'bg-cyan-50' },
-  { icon: Layers, title: 'AI 海报', desc: '智能排版创意设计', color: 'from-pink-400 to-pink-600', bg: 'bg-pink-50' },
-  { icon: Scissors, title: 'AI 抠图', desc: '精准主体识别去背景', color: 'from-emerald-400 to-emerald-600', bg: 'bg-emerald-50' },
-  { icon: Expand, title: 'AI 扩图', desc: '智能扩展画面边界', color: 'from-orange-400 to-orange-600', bg: 'bg-orange-50' },
+const imageTools = [
+  { icon: Scissors, title: '一键抠图', desc: '智能识别主体，精准去除背景', color: 'from-emerald-400 to-teal-500', bg: 'bg-emerald-50', iconC: 'text-emerald-500' },
+  { icon: Expand, title: 'AI 扩图', desc: '智能扩展边界，无缝填充画面', color: 'from-blue-400 to-indigo-500', bg: 'bg-blue-50', iconC: 'text-blue-500' },
+  { icon: Wand2, title: '高清修复', desc: '老照片翻新、去噪、上色、增强', color: 'from-amber-400 to-orange-500', bg: 'bg-amber-50', iconC: 'text-amber-500' },
+  { icon: Shirt, title: '换背景', desc: '一键更换图片背景，风格随心变', color: 'from-purple-400 to-pink-500', bg: 'bg-purple-50', iconC: 'text-purple-500' },
+  { icon: PenTool, title: '无痕改字', desc: '图片中的文字智能替换，自然无痕', color: 'from-rose-400 to-red-500', bg: 'bg-rose-50', iconC: 'text-rose-500' },
+  { icon: Grid3X3, title: '批量生成', desc: '一次生成多张变体，高效对比选优', color: 'from-cyan-400 to-blue-500', bg: 'bg-cyan-50', iconC: 'text-cyan-500' },
+];
+
+const hotTasks = [
+  '把照片背景替换成海边日落',
+  '给人物换一个时尚短发发型',
+  '去除图片中所有水印文字',
+  '把照片上的路人全部消除',
+  '生成这张图片十年后的样子',
+  '帮我把果汁替换成冰咖啡',
+  '让照片里的人物开心地笑起来',
+  '帮我设计一张秋季促销海报',
 ];
 
 export default function HomePage() {
   const router = useRouter();
   const [prompt, setPrompt] = useState('');
-  const [config, setConfig] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    (async () => { try { const r = await window.fetch('/api/cms/config'); setConfig(await r.json()); } catch {} })();
-  }, []);
-
-  if (!config) return (
-    <div className="flex justify-center py-40 min-h-screen bg-outer-dark">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-400 to-purple-500 animate-pulse" />
-        <p className="text-sm text-slate-500">加载中...</p>
-      </div>
-    </div>
-  );
-
-  const { tools, quickPrompts, stats } = config;
   const handleNavigate = (p?: string) => {
     const q = p || prompt.trim();
     router.push(q ? `/studio?prompt=${encodeURIComponent(q)}` : '/studio');
   };
 
   return (
-    <div className="flex flex-col items-center bg-outer-dark overflow-hidden min-h-screen">
-      {/* ===== Outer dark bg with decorations ===== */}
-      <div className="fixed inset-0 bg-grid-subtle pointer-events-none" />
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-b from-blue-500/[0.04] via-transparent to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="fixed bottom-0 right-0 w-[500px] h-[300px] bg-gradient-to-t from-purple-500/[0.03] to-transparent rounded-full blur-3xl pointer-events-none" />
+    <div className="flex flex-col items-center bg-page overflow-hidden">
+      {/* ===== Background decorations ===== */}
+      <div className="fixed inset-0 bg-grid-light pointer-events-none" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-blue-400/[0.05] via-transparent to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed bottom-0 right-0 w-[600px] h-[400px] bg-gradient-to-t from-purple-400/[0.04] to-transparent rounded-full blur-3xl pointer-events-none" />
 
-      {/* ===== Main Stage Card ===== */}
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 py-10">
-        <div className="stage-card overflow-hidden">
-          
-          {/* Hero Section */}
-          <section className="relative px-6 md:px-12 pt-12 pb-8 bg-glow-top">
-            <div className="flex flex-col lg:flex-row items-center gap-8">
+      {/* ===== Main Container 1280-1360px ===== */}
+      <div className="relative z-10 w-full max-w-[1320px] mx-auto px-4 py-8">
+        <div className="glass-stage overflow-hidden bg-hero-glow-top bg-hero-glow-bottom">
+
+          {/* ===== Hero Section ===== */}
+          <section className="relative px-8 md:px-14 pt-14 pb-10">
+            <div className="flex flex-col lg:flex-row items-center gap-10">
               {/* Left: Text + Input */}
               <div className="flex-1 text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100">
-                  <div className="accent-dot" />
-                  <span className="text-xs text-blue-600 font-semibold">椒图AI v2.0</span>
-                  <Badge className="bg-blue-500 text-white border-0 text-[10px]">AI</Badge>
+                <div className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full bg-white border border-blue-100 shadow-sm">
+                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  <span className="text-xs text-slate-500 font-semibold">造境 AI V1.0</span>
+                  <Badge className="bg-blue-500 text-white border-0 text-[10px]">NEW</Badge>
                 </div>
 
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-3 leading-[1.1]">
-                  <span className="text-slate-800">造境 </span>
-                  <span className="gradient-text-brand">AI 创作助手</span>
+                  <span className="gradient-text-brand">造境 AI 创作助手</span>
                 </h1>
-                <p className="text-lg text-slate-400 mb-2 font-medium">智能图像创作中心</p>
-                <p className="text-sm text-slate-500 mb-8 max-w-lg">支持文生图、AI修图、电商作图、海报设计，一站式完成创作与管理</p>
+                <p className="text-xl text-slate-400 mb-2 font-medium">智能图像创作中心</p>
+                <p className="text-sm text-slate-500 mb-8 max-w-lg leading-relaxed">支持文生图、AI 修图、电商作图、海报设计，一站式完成创作与管理</p>
 
                 {/* Hero Input */}
                 <div className="w-full max-w-xl">
-                  <div className="hero-input-wrap flex items-start">
+                  <div className="hero-input flex items-start">
                     <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
                       placeholder="一句话生成你的创意视觉..."
                       className="flex-1 resize-none bg-transparent border-0 text-slate-700 placeholder:text-slate-400 focus-visible:ring-0 py-5 px-5 pr-28 text-base min-h-[60px]"
@@ -99,117 +88,135 @@ export default function HomePage() {
                       <label className="cursor-pointer p-2.5 rounded-xl hover:bg-blue-50 text-slate-400 hover:text-blue-500 transition-all">
                         <Upload className="h-4 w-4" /><Input ref={fileInputRef} type="file" accept="image/*" className="hidden" /></label>
                       <Button onClick={() => handleNavigate()} size="icon"
-                        className="h-10 w-10 rounded-xl btn-primary-gradient">
+                        className="h-10 w-10 rounded-xl btn-brand">
                         <ArrowRight className="h-5 w-5" /></Button>
                     </div>
                   </div>
-                  {/* Quick actions */}
                   <div className="flex flex-wrap gap-2 mt-4">
-                    {quickActions.map((a) => (
-                      <button key={a.label} onClick={() => handleNavigate(a.label)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${a.color} hover:opacity-80 transition-all`}>
-                        <a.icon className="h-3.5 w-3.5" />{a.label}</button>
+                    {['生成商品主图', 'AI 修图', '去背景', '生成海报'].map((tag) => (
+                      <button key={tag} onClick={() => handleNavigate(tag)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all">
+                        {tag}</button>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Right: AI Illustration */}
+              {/* Right: 3D AI Illustration */}
               <div className="flex-1 flex justify-center">
-                <div className="relative w-72 h-72 lg:w-80 lg:h-80">
-                  {/* AI chip illustration */}
-                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-100 via-purple-50 to-cyan-50 border border-blue-100/50 flex items-center justify-center overflow-hidden">
-                    <div className="absolute inset-0 bg-grid-subtle opacity-30" />
-                    {/* AI core */}
-                    <div className="relative z-10">
-                      <div className="w-28 h-28 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-cyan-400 flex items-center justify-center shadow-2xl shadow-blue-400/20 animate-glow">
-                        <Brain className="h-14 w-14 text-white" />
-                      </div>
-                      {/* Orbit rings */}
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-44 h-44 rounded-full border border-blue-200/40 animate-spin" style={{animationDuration:'12s'}} />
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 rounded-full border border-purple-200/30 animate-spin" style={{animationDuration:'18s', animationDirection:'reverse'}} />
-                    </div>
+                <div className="ai-illustration">
+                  <div className="ai-core">
+                    <Brain className="h-12 w-12 text-white" />
                   </div>
+                  <div className="ai-ring ai-ring-1" />
+                  <div className="ai-ring ai-ring-2" />
+                  <div className="ai-ring ai-ring-3" />
+                  <div className="ai-orb" style={{top:'10%',left:'15%',animationDelay:'0s'}} />
+                  <div className="ai-orb" style={{top:'75%',right:'10%',animationDelay:'1s',background:'#7b61ff'}} />
+                  <div className="ai-orb" style={{bottom:'15%',left:'10%',animationDelay:'2s',background:'#45c7ff'}} />
                 </div>
               </div>
             </div>
           </section>
 
-          <div className="soft-divider mx-12" />
+          <div className="soft-divider mx-14" />
 
-          {/* Core Tools Matrix */}
-          <section className="px-6 md:px-12 py-8">
+          {/* ===== Core Capabilities ===== */}
+          <section className="px-8 md:px-14 py-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="accent-dot-blue" />
+              <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-blue-400 to-purple-500" />
               <h2 className="text-xl font-extrabold text-slate-800">核心能力</h2>
               <Badge className="bg-blue-50 text-blue-600 border-0 text-[10px]">AI Powered</Badge>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {highlightTools.map((t) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {coreCapabilities.map((t) => (
                 <div key={t.title} onClick={() => handleNavigate(t.title)}
-                  className="func-card text-center group">
-                  <div className={`func-icon bg-gradient-to-br ${t.color} mx-auto shadow-md`}>
+                  className="tool-card text-center group">
+                  <div className={`tool-icon bg-gradient-to-br ${t.gradient} mx-auto shadow-md`}>
                     <t.icon className="h-5 w-5 text-white" /></div>
-                  <h3 className="text-sm font-bold text-slate-800 mb-1">{t.title}</h3>
-                  <p className="text-xs text-slate-400">{t.desc}</p>
+                  <h3 className="text-sm font-bold text-slate-800 mt-3 mb-1">{t.title}</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">{t.desc}</p>
                 </div>
               ))}
             </div>
           </section>
 
-          <div className="soft-divider mx-12" />
+          <div className="soft-divider mx-14" />
 
-          {/* Quick Prompts + Stats */}
-          <section className="px-6 md:px-12 py-8">
-            <div className="grid lg:grid-cols-3 gap-6">
-              {/* AI Assistant Card */}
-              <div className="ai-assistant-card p-6 cursor-pointer" onClick={() => router.push('/studio')}>
-                <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Lightbulb className="h-5 w-5 text-yellow-300" />
-                    <span className="text-sm font-bold">智能助手</span>
-                  </div>
-                  <p className="text-white/80 text-sm mb-4 leading-relaxed">告诉我你想做什么，AI帮你选择最佳方案</p>
-                  <div className="space-y-2">
-                    {['帮我生成电商产品主图', '把这张照片背景换成海边', '修复这张老照片'].map((q,i) => (
-                      <div key={i} onClick={(e) => { e.stopPropagation(); handleNavigate(q); }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 text-xs transition-all">
-                        <MessageSquare className="h-3 w-3 shrink-0" />{q}</div>
-                    ))}
-                  </div>
+          {/* ===== Image Tools ===== */}
+          <section className="px-8 md:px-14 py-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-emerald-400 to-cyan-500" />
+              <h2 className="text-xl font-extrabold text-slate-800">图片工具</h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {imageTools.map((t) => (
+                <div key={t.title} onClick={() => handleNavigate(t.title)}
+                  className="tool-card text-center group p-4">
+                  <div className={`tool-icon bg-gradient-to-br ${t.color} mx-auto shadow-md`} style={{width:40,height:40,borderRadius:12}}>
+                    <t.icon className="h-4 w-4 text-white" /></div>
+                  <h3 className="text-xs font-bold text-slate-800 mt-2.5 mb-0.5">{t.title}</h3>
+                  <p className="text-[10px] text-slate-400">{t.desc}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="soft-divider mx-14" />
+
+          {/* ===== Hot Tasks ===== */}
+          <section className="px-8 md:px-14 py-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-amber-400 to-orange-500" />
+              <h2 className="text-xl font-extrabold text-slate-800">热门创作任务</h2>
+              <Star className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {hotTasks.map((p, i) => (
+                <div key={i} onClick={() => handleNavigate(p)}
+                  className="group bg-white border border-slate-100 rounded-xl px-4 py-3.5 cursor-pointer hover:border-blue-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                  <p className="text-sm text-slate-600 group-hover:text-slate-800 leading-relaxed">{p}</p>
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-300 mt-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="soft-divider mx-14" />
+
+          {/* ===== CTA / Plans ===== */}
+          <section className="px-8 md:px-14 py-10">
+            <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50 rounded-3xl p-8 md:p-10 flex flex-col lg:flex-row items-center gap-8 border border-blue-100/50">
+              <div className="flex-1 text-center lg:text-left">
+                <div className="flex items-center gap-2 mb-3 justify-center lg:justify-start">
+                  <Sparkles className="h-5 w-5 text-blue-500" />
+                  <span className="text-sm text-blue-600 font-semibold">开始你的创作之旅</span>
+                </div>
+                <h3 className="text-2xl font-extrabold text-slate-800 mb-2">免费体验造境 AI</h3>
+                <p className="text-sm text-slate-500 mb-5">无需下载，打开浏览器就能用。AI 创作，一键搞定。</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+                  <Button onClick={() => router.push('/studio')}
+                    className="rounded-xl btn-brand h-11 px-7">
+                    <Zap className="h-4 w-4 mr-2" />立即创作</Button>
+                  <Button variant="outline" onClick={() => router.push('/wallet')}
+                    className="rounded-xl h-11 px-7 border-slate-200 text-slate-600 hover:border-blue-200 hover:text-blue-600">
+                    查看套餐</Button>
                 </div>
               </div>
-
-              {/* Quick Prompts */}
-              <div className="lg:col-span-2">
-                <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-400" />热门创作任务</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {quickPrompts.slice(0, 8).map((p: string, i: number) => (
-                    <div key={i} onClick={() => handleNavigate(p)}
-                      className="func-card text-sm text-slate-600 hover:text-slate-800 flex items-center gap-3">
-                      <ChevronRight className="h-4 w-4 text-blue-400 shrink-0 group-hover:translate-x-1 transition-transform" />
-                      {p}
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center gap-6 text-center">
+                {[
+                  { value: '50万+', label: '日均处理' },
+                  { value: '20+', label: '覆盖场景' },
+                  { value: '银行级', label: '安全加密' },
+                ].map((s) => (
+                  <div key={s.label}>
+                    <p className="text-2xl font-extrabold gradient-text-brand">{s.value}</p>
+                    <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </section>
-        </div>
-
-        {/* Stats Bar */}
-        <div className="grid grid-cols-3 gap-4 mt-6">
-          {stats.map((stat: any) => {
-            const Icon = iconMap[stat.icon] || Activity;
-            return (
-              <div key={stat.label} className="glass-card p-5 text-center">
-                <Icon className="h-6 w-6 mx-auto mb-2 text-blue-400" />
-                <p className="text-xl font-extrabold text-slate-800">{stat.value}</p>
-                <p className="text-xs text-slate-500">{stat.label}</p>
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>

@@ -26,7 +26,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="flex h-screen bg-[#0a0e1a]">
+    <div className="flex h-screen bg-[#f4f7ff]">
       <aside className={`${collapsed ? 'w-[70px]' : 'w-64'} bg-white border-r border-slate-200 flex flex-col transition-all duration-300 shrink-0`}>
         <div className="h-16 flex items-center px-4 border-b border-slate-100">
           <Link href="/admin/dashboard" className="flex items-center gap-2.5">
@@ -38,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="space-y-1">
             {menuItems.map((item) => { const Icon = item.icon; const active = pathname === item.href;
               return (
-                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active ? 'bg-blue-50 text-blue-600 font-medium' : 'text-slate-500 hover:text-slate-800 hover:bg-[#0a0e1a]'}`}>
+                <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${active ? 'bg-blue-50 text-blue-600 font-medium' : 'text-slate-500 hover:text-slate-800 hover:bg-[#f4f7ff]'}`}>
                   <Icon className="h-4 w-4 shrink-0" />{!collapsed && <span>{item.label}</span>}</Link>
               );
             })}
@@ -46,7 +46,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </ScrollArea>
         <div className="p-3 border-t border-slate-100 space-y-1">
           <Link href="/" className="flex items-center justify-center gap-2 p-2 rounded-xl text-xs text-slate-400 hover:text-blue-500 hover:bg-blue-50"><Home className="h-3.5 w-3.5" />{!collapsed && '返回前台'}</Link>
-          <button onClick={() => setCollapsed(!collapsed)} className="w-full flex justify-center p-2 rounded-xl text-slate-400 hover:bg-[#0a0e1a]">{collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}</button>
+          <button onClick={() => setCollapsed(!collapsed)} className="w-full flex justify-center p-2 rounded-xl text-slate-400 hover:bg-[#f4f7ff]">{collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}</button>
         </div>
       </aside>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

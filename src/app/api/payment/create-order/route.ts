@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     const result = await createNativeOrder({
       outTradeNo,
-      description: description || `椒图AI充值 ${points}点`,
+      description: description || `造境 AI充值 ${points}点`,
       amount: {
         total: Math.round(price * 100), // 元转分
         currency: 'CNY',

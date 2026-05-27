@@ -8,15 +8,15 @@ import LayoutWrapper from "@/components/layout/LayoutWrapper";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "椒图AI - 中文AI修图神器",
-  description: "免费在线AI修图工具。电商设计、虚拟试衣、照片修复、抠图扩图、AI视频生成。",
-  keywords: "椒图AI,AI修图,电商套图,AI抠图,AI视频",
+  title: "造境 AI - 智能图像创作平台",
+  description: "AI创作平台。文生图、AI修图、电商作图、海报设计，一站式创作与管理。",
+  keywords: "造境 AI,AI创作,文生图,AI修图,电商作图",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#0a0e1a] text-slate-200">
+      <body className="min-h-full flex flex-col bg-[#f4f7ff] text-slate-800">
         <TooltipProvider>
           <LayoutWrapper>{children}</LayoutWrapper>
           <Toaster richColors theme="light" position="top-center" />

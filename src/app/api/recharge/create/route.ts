@@ -52,14 +52,14 @@ export async function POST(req: NextRequest) {
     if (channel === 'alipay') {
       result = await createAlipayOrder({
         outTradeNo,
-        subject: `椒图AI-${points}点充值`,
+        subject: `造境 AI-${points}点充值`,
         totalAmount: price,
         notifyUrl: channelConfig?.notifyUrl || '',
       });
     } else {
       result = await createNativeOrder({
         outTradeNo,
-        description: `椒图AI-${points}点充值`,
+        description: `造境 AI-${points}点充值`,
         amount: { total: amountCent, currency: 'CNY' },
       }, channelConfig ? { channelConfig: { appId: channelConfig.appId, merchantId: channelConfig.merchantId, notifyUrl: channelConfig.notifyUrl, configJson: channelConfig.configJson } } : undefined);
     }
