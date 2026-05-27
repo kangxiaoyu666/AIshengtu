@@ -1,76 +1,73 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAllPaymentChannels, savePaymentChannel, updatePaymentChannelStatus, getPaymentChannelByCode } from '@/lib/db';
-import { requireAdmin } from '@/lib/admin-auth';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { ok, fail, unauthorized } from "@/lib/response";
+import { getUserFromRequest } from "@/lib/auth";
 
-// GET - 获取所有支付渠道（敏感字段脱敏）
+/** GET: 获取所有支付渠道（脱敏） */
 export async function GET(req: NextRequest) {
-  const authErr = requireAdmin(req); if (authErr) return authErr;
-  try {
-    const channels = getAllPaymentChannels().map(c => ({
-      ...c,
-      configJson: c.configJson && c.configJson !== '{}' ? '[已配置]' : '[未配置]',
-    }));
-    return NextResponse.json({ channels, total: channels.length });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
+  const admin = await getUserFromRequest(req);
+  if (!admin || admin.role !== "admin") return unauthorized();
+
+  const channels = await prisma.paymentChannelConfig.findMany();
+
+  // 脱敏：不返回密钥明文
+  const sanitized = channels.map((c) => {
+    let configJson = "{}";
+    try {
+      const parsed = JSON.parse(c.configJson);
+      configJson = JSON.stringify({
+        apiV3Key: parsed.apiV3Key ? "****" : "",
+        privateKey: parsed.privateKey ? "****" : "",
+        certSerialNo: parsed.certSerialNo || "",
+        alipayPublicKey: parsed.alipayPublicKey ? "****" : "",
+      });
+    } catch {}
+
+    return { ...c, configJson };
+  });
+
+  return ok(sanitized);
 }
 
-// PUT - 保存支付渠道配置
-export async function PUT(req: NextRequest) {
-  const authErr = requireAdmin(req); if (authErr) return authErr;
+/** POST: 创建或更新支付渠道 */
+export async function POST(req: NextRequest) {
+  const admin = await getUserFromRequest(req);
+  if (!admin || admin.role !== "admin") return unauthorized();
+
+  const data = await req.json();
+  if (!data.channelCode) return fail("缺少 channelCode");
+
+  const existing = await prisma.paymentChannelConfig.findUnique({
+    where: { channelCode: data.channelCode },
+  });
+
+  const channel = existing
+    ? await prisma.paymentChannelConfig.update({
+        where: { channelCode: data.channelCode },
+        data: {
+          channelName: data.channelName ?? existing.channelName,
+          appId: data.appId ?? existing.appId,
+          merchantId: data.merchantId ?? existing.merchantId,
+          gatewayUrl: data.gatewayUrl ?? existing.gatewayUrl,
+          notifyUrl: data.notifyUrl ?? existing.notifyUrl,
+          returnUrl: data.returnUrl ?? existing.returnUrl,
+          configJson: data.configJson ?? existing.configJson,
+          status: data.status ?? existing.status,
+        },
+      })
+    : await prisma.paymentChannelConfig.create({ data });
+
+  // 脱敏返回
+  let safeConfig = "{}";
   try {
-    const body = await req.json();
-    const { channelCode, channelName, appId, merchantId, gatewayUrl, notifyUrl, returnUrl, configJson, status } = body;
-    
-    if (!channelCode) {
-      return NextResponse.json({ error: '缺少channelCode' }, { status: 400 });
-    }
-    
-    // 验证：如果启用，必须填写必要字段
-    if (status === 'enabled') {
-      if (!appId || !merchantId) {
-        return NextResponse.json({ error: '启用前请填写 App ID 和商户号' }, { status: 400 });
-      }
-    }
-    
-    const channel = savePaymentChannel({
-      channelCode, channelName, appId: appId || '', merchantId: merchantId || '',
-      gatewayUrl: gatewayUrl || '', notifyUrl: notifyUrl || '', returnUrl: returnUrl || '',
-      configJson: typeof configJson === 'object' ? JSON.stringify(configJson) : (configJson || '{}'),
-      status: status || 'disabled',
+    const parsed = JSON.parse(channel.configJson);
+    safeConfig = JSON.stringify({
+      apiV3Key: parsed.apiV3Key ? "****" : "",
+      privateKey: parsed.privateKey ? "****" : "",
+      certSerialNo: parsed.certSerialNo || "",
+      alipayPublicKey: parsed.alipayPublicKey ? "****" : "",
     });
-    
-    return NextResponse.json({ success: true, channel: { ...channel, configJson: channel.configJson !== '{}' ? '[已配置]' : '[未配置]' } });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
-}
+  } catch {}
 
-// PATCH - 切换状态
-export async function PATCH(req: NextRequest) {
-  const authErr = requireAdmin(req); if (authErr) return authErr;
-  try {
-    const body = await req.json();
-    const { channelCode, status } = body;
-    
-    if (!channelCode) {
-      return NextResponse.json({ error: '缺少channelCode' }, { status: 400 });
-    }
-    
-    // 启用前验证
-    if (status === 'enabled') {
-      const ch = getPaymentChannelByCode(channelCode);
-      if (!ch || !ch.appId || !ch.merchantId) {
-        return NextResponse.json({ error: '请先完善支付配置后再启用' }, { status: 400 });
-      }
-    }
-    
-    const ok = updatePaymentChannelStatus(channelCode, status);
-    if (!ok) return NextResponse.json({ error: '渠道不存在' }, { status: 404 });
-    
-    return NextResponse.json({ success: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
+  return ok({ ...channel, configJson: safeConfig });
 }

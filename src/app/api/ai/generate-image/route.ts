@@ -1,80 +1,59 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { deductPoints, refundPoints, logGenerate, getOrCreatePoints } from '@/lib/db';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { ok, fail, unauthorized } from "@/lib/response";
+import { getUserFromRequest } from "@/lib/auth";
+import { CreditService } from "@/lib/services/credit";
+import { QueueService } from "@/lib/services/queue";
 
-/**
- * POST /api/ai/generate-image
- * 用户消耗点数生成 AI 图片
- * 流程：检查余额 → 扣点 → 调用AI → 成功确认 / 失败返还
- */
 export async function POST(req: NextRequest) {
   try {
-    const { userId, prompt, model } = await req.json();
-    if (!userId || !prompt) return NextResponse.json({ error: '缺少参数' }, { status: 400 });
+    const user = await getUserFromRequest(req);
+    if (!user) return unauthorized();
 
-    const pointsCost = model === 'deep' ? 5 : 2;
+    const { prompt, modelId, negativePrompt, params } = await req.json();
+    if (!prompt) return fail("缺少提示词");
 
-    // 1. 检查余额
-    const balance = getOrCreatePoints(userId);
-    if (balance.balancePoints < pointsCost) {
-      return NextResponse.json({ error: '点数不足', balance: balance.balancePoints, required: pointsCost }, { status: 402 });
-    }
+    // 获取模型配置
+    const model = modelId
+      ? await prisma.aiModel.findUnique({ where: { id: modelId } })
+      : await prisma.aiModel.findFirst({ where: { status: "active" }, orderBy: { priority: "desc" } });
+    if (!model) return fail("无可用模型");
 
-    // 2. 扣除点数 + 写流水
-    const deductResult = deductPoints(userId, pointsCost, `AI生图: ${prompt.slice(0, 50)}`);
-    if (!deductResult.success) {
-      return NextResponse.json({ error: deductResult.error }, { status: 402 });
-    }
+    const creditsCost = model.pointsPerUse * (params?.count || 1);
 
-    // 3. 调用 AI 生成（此处通过 chat API 实现）
+    // 1. 创建任务 (status=created)
+    const task = await prisma.aiTask.create({
+      data: {
+        userId: user.userId,
+        modelId: model.id,
+        type: "text2img",
+        prompt,
+        negativePrompt: negativePrompt || "",
+        paramsJson: JSON.stringify(params || {}),
+        status: "created",
+        creditsCost,
+      },
+    });
+
+    // 2. 冻结点数
     try {
-      const apiKey = process.env.LLM_API_KEY || '';
-      const baseURL = process.env.LLM_BASE_URL || 'https://api.openai.com/v1';
-      const modelName = process.env.LLM_MODEL || 'gpt-4o';
-
-      if (!apiKey) {
-        // 模拟生成（无API Key时）
-        logGenerate({ userId, prompt, model: model || 'default', pointsCost, status: 'success', result: '模拟生成结果' });
-        return NextResponse.json({
-          success: true,
-          balance: deductResult.balance,
-          response: `AI 已处理你的请求：${prompt}`,
-          pointsCost,
-        });
-      }
-
-      const OpenAI = (await import('openai')).default;
-      const client = new OpenAI({ apiKey, baseURL });
-
-      const completion = await client.chat.completions.create({
-        model: modelName,
-        messages: [
-          { role: 'system', content: '你是一个AI图像处理助手。请根据用户描述生成/编辑图片的建议。' },
-          { role: 'user', content: prompt },
-        ],
-        max_tokens: 1000,
-      });
-
-      const response = completion.choices[0]?.message?.content || '';
-
-      logGenerate({ userId, prompt, model: modelName, pointsCost, status: 'success', result: response });
-
-      return NextResponse.json({
-        success: true,
-        balance: deductResult.balance,
-        response,
-        pointsCost,
-      });
-    } catch (aiError: any) {
-      // 4. 失败返还点数
-      refundPoints(userId, pointsCost, `AI生成失败返还: ${prompt.slice(0, 30)}`);
-      logGenerate({ userId, prompt, model: model || 'default', pointsCost, status: 'failed' });
-
-      return NextResponse.json({
-        error: 'AI生成失败，点数已返还',
-        balance: getOrCreatePoints(userId).balancePoints,
-      }, { status: 500 });
+      await CreditService.freeze(user.userId, creditsCost, task.id);
+      await prisma.aiTask.update({ where: { id: task.id }, data: { creditsFrozen: true } });
+    } catch (e: any) {
+      await prisma.aiTask.update({ where: { id: task.id }, data: { status: "blocked", errorMsg: e.message } });
+      return fail(e.message, 402);
     }
+
+    // 3. 提交到异步队列
+    QueueService.submit(task.id).catch((e) => console.error("[Queue] submit error:", e));
+
+    return ok({
+      taskId: task.id,
+      status: task.status,
+      creditsCost,
+      message: "任务已提交，正在排队处理",
+    });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return fail(e.message || "提交失败", 500);
   }
 }

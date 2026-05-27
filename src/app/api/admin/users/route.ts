@@ -1,67 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAllUsers, updateUserStatus, updateUserRole, deleteUser } from '@/lib/user-store';
-import { requireAdmin } from '@/lib/admin-auth';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { ok, fail, unauthorized } from "@/lib/response";
+import { getUserFromRequest } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const authErr = requireAdmin(req); if (authErr) return authErr;
-  try {
-    const users = getAllUsers();
-    return NextResponse.json({ users, total: users.length });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const admin = await getUserFromRequest(req);
+  if (!admin || admin.role !== "admin") return unauthorized();
+
+  const users = await prisma.user.findMany({
+    select: { id: true, email: true, name: true, role: true, status: true, avatar: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Attach credit balances
+  const withBalances = await Promise.all(
+    users.map(async (u) => {
+      const account = await prisma.creditAccount.findUnique({ where: { userId: u.id } });
+      return { ...u, credits: account?.balance || 0 };
+    })
+  );
+
+  return ok(withBalances);
 }
 
 export async function PATCH(req: NextRequest) {
-  const authErr = requireAdmin(req); if (authErr) return authErr;
-  try {
-    const body = await req.json();
-    const { id, action, value } = body;
+  const admin = await getUserFromRequest(req);
+  if (!admin || admin.role !== "admin") return unauthorized();
 
-    if (!id || !action) {
-      return NextResponse.json({ error: '缺少参数' }, { status: 400 });
-    }
+  const { id, status, role } = await req.json();
+  if (!id) return fail("缺少用户ID");
 
-    let success = false;
+  const data: Record<string, string> = {};
+  if (status) data.status = status;
+  if (role) data.role = role;
 
-    switch (action) {
-      case 'status':
-        success = updateUserStatus(id, value);
-        break;
-      case 'role':
-        success = updateUserRole(id, value);
-        break;
-      default:
-        return NextResponse.json({ error: '无效操作' }, { status: 400 });
-    }
-
-    if (!success) {
-      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: NextRequest) {
-  const authErr = requireAdmin(req); if (authErr) return authErr;
-  try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: '缺少用户ID' }, { status: 400 });
-    }
-
-    const success = deleteUser(id);
-    if (!success) {
-      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  await prisma.user.update({ where: { id }, data });
+  return ok({ updated: true });
 }

@@ -8,9 +8,12 @@ export async function GET(req: NextRequest) {
   if (!user) return unauthorized();
 
   const account = await CreditService.getAccount(user.userId);
+  const transactions = await CreditService.getTransactions(user.userId, 10);
+
   return ok({
     balance: account.balance,
     frozen: account.frozen,
     available: account.balance - account.frozen,
+    recentTransactions: transactions,
   });
 }

@@ -2,330 +2,555 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
-  Sparkles, Send, Upload, Image as ImageIcon, Plus, Trash2, PanelLeftClose, PanelLeft,
-  X, MessageSquare, Zap, Brain, ShoppingBag, Scissors, Expand, Shirt, Camera,
-  Wand2, ZoomIn, Layers, Copy, Download, Cpu, Loader2, SlidersHorizontal, History,
+  Sparkles, Upload, Download, Copy, X, Image, ShoppingBag,
+  Scissors, Expand, Shirt, Camera, Wand2, Layers, MessageSquare,
+  PenTool, User, Plus, ChevronDown, Cpu,
 } from 'lucide-react';
-import { consumePoints, hasEnoughPoints, getWallet } from '@/lib/wallet';
-import { availableModels } from '@/lib/config';
-import type { ChatMessage, ImageAttachment, ConversationItem } from '@/types';
+import { getWallet } from '@/lib/wallet';
 
-const toolsQuick = [
-  { icon: ShoppingBag, label: '电商套图', prompt: '生成电商产品套图：白底+场景+详情' },
-  { icon: Scissors, label: '抠图', prompt: '抠掉背景，输出透明PNG' },
-  { icon: Expand, label: '扩图', prompt: '向四周扩展，智能填充' },
-  { icon: Shirt, label: '换装', prompt: '给人物换上这件衣服' },
-  { icon: Camera, label: '证件照', prompt: '制作蓝底/白底证件照' },
-  { icon: Wand2, label: '修复', prompt: '修复老照片，去噪增强清晰度' },
-  { icon: ZoomIn, label: '放大', prompt: '高清放大2倍' },
-  { icon: Layers, label: '海报', prompt: '设计一张宣传海报' },
+/* ================================================================
+   Data
+   ================================================================ */
+
+const creativeTypes = [
+  { id: 'text2img', label: 'AI 文生图', icon: Image, active: true },
+  { id: 'img2img', label: '图生图', icon: Image },
+  { id: 'chat-edit', label: '对话修图', icon: MessageSquare },
+  { id: 'product', label: '商品图', icon: ShoppingBag },
+  { id: 'poster', label: 'AI 海报', icon: Layers },
 ];
+
+const imageTools = [
+  { id: 'remove-bg', label: '一键抠图', icon: Scissors },
+  { id: 'expand', label: 'AI 扩图', icon: Expand },
+  { id: 'restore', label: '高清修复', icon: Wand2 },
+  { id: 'change-bg', label: '换背景', icon: Shirt },
+  { id: 'id-photo', label: '证件照', icon: Camera },
+];
+
+const modelOptions = [
+  { id: 'default', label: '默认模型', desc: '通用高质量生成' },
+  { id: 'realistic', label: '写实模型', desc: '照片级真实感' },
+  { id: 'illustration', label: '插画模型', desc: '艺术插画风格' },
+  { id: 'product', label: '商品图模型', desc: '电商产品优化' },
+];
+
+const aspectRatios = [
+  { id: '1:1', label: '1:1', w: 1024, h: 1024 },
+  { id: '3:4', label: '3:4', w: 768, h: 1024 },
+  { id: '4:3', label: '4:3', w: 1024, h: 768 },
+  { id: '9:16', label: '9:16', w: 576, h: 1024 },
+  { id: '16:9', label: '16:9', w: 1024, h: 576 },
+];
+
+const sizeOptions = ['1024x1024', '768x1024', '1024x768'];
+
+const styleOptions = ['写实摄影', '商业摄影', '插画', '动漫', '3D', '科技感'];
+
+const quickPrompts = [
+  { icon: '🌆', label: '未来城市海报', prompt: '未来城市海报，赛博朋克风格，霓虹灯光，高科技感' },
+  { icon: '🛍️', label: '高级感商品主图', prompt: '高级感商品主图，极简白色背景，专业产品摄影，柔和灯光' },
+  { icon: '💜', label: '蓝紫科技背景', prompt: '蓝紫科技背景，抽象几何，数据流，未来科技感' },
+  { icon: '📱', label: '小红书封面', prompt: '小红书封面图，清新自然风格，温暖色调，生活美学' },
+  { icon: '👤', label: '写实人像', prompt: '写实人像摄影，自然光，浅景深，专业肖像' },
+];
+
+/* ================================================================
+   Component
+   ================================================================ */
 
 export default function StudioContent() {
   const searchParams = useSearchParams();
   const initialPrompt = searchParams.get('prompt') || '';
-  const [conversations, setConversations] = useState<ConversationItem[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string>('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [images, setImages] = useState<ImageAttachment[]>([]);
-  const [resultImages, setResultImages] = useState<string[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const [selectedModel, setSelectedModel] = useState('gpt-4o');
-  const [loading, setLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [paramsOpen, setParamsOpen] = useState(true);
-  const [mode, setMode] = useState<'fast' | 'deep'>('fast');
+
+  // --- prompt & generation state ---
+  const [prompt, setPrompt] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState('');
+  const [selectedModel, setSelectedModel] = useState('default');
+  const [aspectRatio, setAspectRatio] = useState('1:1');
   const [imgSize, setImgSize] = useState('1024x1024');
   const [imgCount, setImgCount] = useState(2);
-  const [negativePrompt, setNegativePrompt] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState('写实摄影');
+  const [enhancePrompt, setEnhancePrompt] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [resultImages, setResultImages] = useState<string[]>([]);
+  const [hasGenerated, setHasGenerated] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [points, setPoints] = useState(0);
 
-  useEffect(() => { try { const s = localStorage.getItem('jiaotu_conversations'); if (s) setConversations(JSON.parse(s)); } catch {} }, []);
-  useEffect(() => { if (initialPrompt && messages.length === 0) setInputValue(initialPrompt); }, [initialPrompt]);
+  useEffect(() => { setPoints(getWallet().points); }, []);
+  useEffect(() => {
+    if (initialPrompt && !hasGenerated) setPrompt(initialPrompt);
+  }, [initialPrompt, hasGenerated]);
 
-  const saveConversation = useCallback((msgs: ChatMessage[], imgs: ImageAttachment[]) => {
-    const convId = activeConvId || uuidv4();
-    if (!activeConvId) setActiveConvId(convId);
-    const existing = conversations.find((c) => c.id === convId);
-    const title = msgs[0]?.content?.slice(0, 30) || '新对话';
-    const updated: ConversationItem = { id: convId, title, messages: msgs, images: imgs, createdAt: existing?.createdAt || Date.now(), updatedAt: Date.now() };
-    const newConvs = [updated, ...conversations.filter((c) => c.id !== convId)].slice(0, 50);
-    setConversations(newConvs);
-    localStorage.setItem('jiaotu_conversations', JSON.stringify(newConvs));
-  }, [activeConvId, conversations]);
-
-  const mockGenerate = () => {
-    const colors = ['6366f1', '8b5cf6', '3b82f6', '06b6d4', '10b981', 'f59e0b', 'ef4444', 'ec4899'];
-    return Array.from({ length: imgCount }, (_, i) =>
-      `https://placehold.co/${imgSize.replace('x','x')}/${colors[i % colors.length]}/ffffff?text=AI+Result+${i+1}`
-    );
+  // sync image size when aspect ratio changes
+  const handleAspectChange = (ratio: string) => {
+    setAspectRatio(ratio);
+    const found = aspectRatios.find((r) => r.id === ratio);
+    if (found && found.w && found.h) {
+      setImgSize(`${found.w}x${found.h}`);
+    }
   };
 
-  const handleSend = useCallback(async () => {
-    const text = inputValue.trim();
-    if (!text && images.length === 0) return;
-    if (loading) return;
-    const pointsCost = mode === 'deep' ? 5 : 2;
-    if (!hasEnoughPoints(pointsCost)) {
-      toast.error('点数不足', { description: `需要 ${pointsCost} 点，当前余额 ${getWallet().points} 点。`, action: { label: '去充值', onClick: () => window.location.href = '/wallet' } });
+  // --- points calc ---
+  const pointsPerImage = 2;
+  const totalCost = pointsPerImage * imgCount;
+
+  // --- mock generate ---
+  const mockGenerate = useCallback(() => {
+    const palette = ['6366f1', '8b5cf6', '3b82f6', '06b6d4', '10b981', 'f59e0b', 'ef4444', 'ec4899'];
+    return Array.from({ length: imgCount }, (_, i) =>
+      `https://placehold.co/${imgSize.replace('x', 'x')}/${palette[i % palette.length]}/ffffff?text=AI+Result+${i + 1}`
+    );
+  }, [imgCount, imgSize]);
+
+  const handleGenerate = useCallback(async () => {
+    const text = prompt.trim();
+    if (!text) {
+      toast.error('请输入提示词');
       return;
     }
-    setInputValue(''); setLoading(true); setResultImages([]);
+    if (loading) return;
+    if (points < totalCost) {
+      toast.error('点数不足', {
+        description: `需要 ${totalCost} 点，当前余额 ${points} 点`,
+        action: { label: '去充值', onClick: () => (window.location.href = '/wallet') },
+      });
+      return;
+    }
+    setLoading(true);
+    setResultImages([]);
 
-    const userMsg: ChatMessage = { id: uuidv4(), role: 'user', content: text || '请处理这张图片', images: [...images], timestamp: Date.now() };
-    const newMessages = [...messages, userMsg]; setMessages(newMessages);
-
-    // Simulate AI generation with delay
-    setTimeout(() => {
+    try {
+      // TODO: call /api/ai/generate-image with params
+      await new Promise((r) => setTimeout(r, 1500));
       const results = mockGenerate();
       setResultImages(results);
-      const assistantMsg: ChatMessage = {
-        id: uuidv4(), role: 'assistant',
-        content: `已为您生成 ${imgCount} 张图片\n尺寸: ${imgSize} | 模型: ${selectedModel} | 消耗 ${pointsCost} 点`,
-        timestamp: Date.now(),
-      };
-      setMessages([...newMessages, assistantMsg]);
-      setImages([]);
-      saveConversation([...newMessages, assistantMsg], []);
-      consumePoints(pointsCost, 'AI修图: ' + (text || '图片处理').slice(0, 30));
-      toast.success('生成完成', { description: `已消耗 ${pointsCost} 点` });
+      setHasGenerated(true);
+      setPoints((prev) => prev - totalCost);
+      toast.success('生成完成', { description: `消耗 ${totalCost} 点，剩余 ${points - totalCost} 点` });
+    } catch {
+      toast.error('生成失败，请重试');
+    } finally {
       setLoading(false);
-    }, 2000);
-  }, [inputValue, images, messages, loading, selectedModel, mode, imgCount, imgSize, saveConversation]);
+    }
+  }, [prompt, loading, points, totalCost, mockGenerate]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files; if (!files) return;
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setImages((prev) => [...prev, { id: uuidv4(), url: ev.target?.result as string, name: file.name }]);
-      };
-      reader.readAsDataURL(file);
-    });
+  const handleCopy = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => toast.success('已复制链接'));
   };
 
-  const removeImage = (id: string) => setImages((prev) => prev.filter((i) => i.id !== id));
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
-  const newConversation = () => { setMessages([]); setImages([]); setResultImages([]); setInputValue(''); setActiveConvId(''); };
-
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-[#0b1120]">
-      {/* Left Sidebar - Tools + History */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-[#0f172a]/95 border-r border-white/5 flex flex-col transition-all duration-300 overflow-hidden shrink-0`}>
-        <div className="p-3 border-b border-white/5">
-          <button onClick={newConversation}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium shadow-lg shadow-blue-500/20">
-            <Plus className="h-4 w-4" />新任务</button>
+    <div className="flex h-[calc(100vh-4rem)] bg-[#f4f7ff] text-slate-800">
+      {/* ================================================================
+          LEFT SIDEBAR
+          ================================================================ */}
+      <aside className="w-56 shrink-0 bg-white/70 backdrop-blur border-r border-slate-200/60 flex flex-col overflow-hidden">
+        {/* New Task */}
+        <div className="p-3">
+          <Button
+            onClick={() => {
+              setPrompt('');
+              setResultImages([]);
+              setHasGenerated(false);
+              setNegativePrompt('');
+            }}
+            className="w-full rounded-xl h-10 text-sm font-semibold btn-brand gap-2"
+          >
+            <Plus className="h-4 w-4" /> 新任务
+          </Button>
         </div>
-        <div className="p-3 border-b border-white/5">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 px-1">快捷工具</p>
-          <div className="space-y-1">
-            {toolsQuick.map((t) => (
-              <button key={t.label} onClick={() => setInputValue(t.prompt)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/5 transition-all">
-                <t.icon className="h-3.5 w-3.5" />{t.label}</button>
-            ))}
-          </div>
-        </div>
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-0.5">
-            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 px-2">历史项目</p>
-            {conversations.map((conv) => (
-              <button key={conv.id} onClick={() => { setActiveConvId(conv.id); setMessages(conv.messages); setImages(conv.images || []); }}
-                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all truncate ${
-                  activeConvId === conv.id ? 'bg-white/10 text-white' : 'text-slate-500 hover:bg-white/5'
-                }`}>
-                <div className="flex items-center gap-2">
-                  <History className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{conv.title}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
 
-      {/* Center - Main Canvas */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5 shrink-0">
-          <div className="flex items-center gap-3">
-            {!sidebarOpen && (
-              <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-white/5 text-slate-400">
-                <PanelLeft className="h-4 w-4" /></button>
-            )}
-            <div className="flex bg-white/5 rounded-lg p-0.5">
-              <button onClick={() => setMode('fast')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${mode==='fast'?'bg-blue-500/20 text-blue-400':'text-slate-500'}`}>
-                <Zap className="h-3 w-3"/>快速</button>
-              <button onClick={() => setMode('deep')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${mode==='deep'?'bg-purple-500/20 text-purple-400':'text-slate-500'}`}>
-                <Brain className="h-3 w-3"/>深度</button>
+        <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-5">
+          {/* Group 1: 创作类型 */}
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">创作类型</p>
+            <div className="space-y-0.5">
+              {creativeTypes.map((item) => (
+                <button
+                  key={item.id}
+                  className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-all ${
+                    item.active
+                      ? 'bg-blue-50 text-blue-600 font-semibold'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-medium'
+                  }`}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </button>
+              ))}
             </div>
-            <Select value={selectedModel} onValueChange={(v) => v && setSelectedModel(v)}>
-              <SelectTrigger className="w-[150px] h-8 rounded-lg bg-white/5 border-white/10 text-slate-300 text-xs">
-                <SelectValue /></SelectTrigger>
-              <SelectContent>
-                {availableModels.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setParamsOpen(!paramsOpen)} className={`p-2 rounded-lg transition-colors ${paramsOpen?'bg-white/10 text-blue-400':'text-slate-500 hover:text-white hover:bg-white/5'}`}>
-              <SlidersHorizontal className="h-4 w-4"/></button>
-            <button onClick={() => { setMessages([]); setResultImages([]); setImages([]); }} className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-white/5">
-              <Trash2 className="h-4 w-4"/></button>
+
+          {/* Group 2: 图片工具 */}
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">图片工具</p>
+            <div className="space-y-0.5">
+              {imageTools.map((item) => (
+                <button
+                  key={item.id}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all font-medium"
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Canvas Area */}
-        <ScrollArea className="flex-1">
-          <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
-            {resultImages.length > 0 ? (
-              /* Image Results Grid */
-              <div className="result-grid mb-6">
-                {resultImages.map((url, i) => (
-                  <div key={i} className="relative group cursor-pointer" onClick={() => toast(`图片 ${i+1} 已保存`)}>
-                    <img src={url} alt={`Result ${i+1}`} className="w-full rounded-xl border border-white/5" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
-                      <button className="p-2 rounded-lg bg-white/20 hover:bg-white/40 text-white"><Download className="h-4 w-4"/></button>
-                      <button className="p-2 rounded-lg bg-white/20 hover:bg-white/40 text-white"><Copy className="h-4 w-4"/></button>
-                    </div>
-                  </div>
-                ))}
+        {/* Points at bottom of sidebar */}
+        <div className="p-3 border-t border-slate-100">
+          <div className="flex items-center gap-2 px-2 py-2 rounded-xl bg-amber-50/80">
+            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400">可用点数</p>
+              <p className="text-sm font-bold text-slate-700">{points.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ================================================================
+          CENTER — Main workspace
+          ================================================================ */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-8 py-6 border-b border-slate-100">
+          <h1 className="text-xl font-extrabold text-slate-800">AI 文生图</h1>
+          <p className="text-sm text-slate-400 mt-1">
+            用一句话描述你想生成的画面，造境 AI 会为你生成图片
+          </p>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-8 py-8 space-y-8">
+            {/* ===== Prompt Input ===== */}
+            <div className="hero-input overflow-hidden">
+              <Textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="一句话描述你的创意视觉，例如：一只猫咪在星空下弹吉他..."
+                className="w-full resize-none bg-transparent border-0 text-slate-700 placeholder:text-slate-400 focus-visible:ring-0 py-5 px-6 text-base min-h-[72px]"
+                rows={2}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleGenerate();
+                  }
+                }}
+              />
+              <div className="flex items-center justify-between px-4 pb-3">
+                <div className="flex items-center gap-2">
+                  <label className="cursor-pointer flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-all">
+                    <Upload className="h-3.5 w-3.5" /> 上传图片
+                    <Input ref={fileInputRef} type="file" accept="image/*" className="hidden" />
+                  </label>
+                  <span className="text-[10px] text-slate-300">⌘+Enter 生成</span>
+                </div>
+                <Button
+                  onClick={handleGenerate}
+                  disabled={!prompt.trim() || loading}
+                  className="rounded-xl btn-brand h-9 px-5 text-sm gap-1.5"
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      生成中...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" /> 立即生成
+                    </>
+                  )}
+                </Button>
               </div>
-            ) : loading ? (
-              /* Generating skeleton */
-              <div className="result-grid">
-                {Array.from({ length: imgCount }, (_, i) => (
-                  <div key={i} className="skeleton-img aspect-square flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 text-slate-600 animate-spin" />
-                  </div>
-                ))}
-              </div>
-            ) : messages.length === 0 ? (
-              /* Empty state */
-              <div className="text-center">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-6 border border-white/5">
-                  <Sparkles className="h-10 w-10 text-blue-400" /></div>
-                <h2 className="text-xl font-bold text-white mb-2">开始创作</h2>
-                <p className="text-sm text-slate-500 max-w-sm mb-6">输入提示词或上传图片，AI即刻为你生成</p>
-                <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
-                  {toolsQuick.slice(0, 4).map((t) => (
-                    <button key={t.label} onClick={() => setInputValue(t.prompt)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-slate-400 hover:text-white hover:border-white/20 transition-all">
-                      <t.icon className="h-3.5 w-3.5" />{t.label}</button>
+            </div>
+
+            {/* ===== Quick Prompts ===== */}
+            {!hasGenerated && (
+              <div>
+                <p className="text-xs text-slate-400 font-medium mb-3">快速开始</p>
+                <div className="flex flex-wrap gap-2">
+                  {quickPrompts.map((qp) => (
+                    <button
+                      key={qp.label}
+                      onClick={() => setPrompt(qp.prompt)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm text-slate-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-sm transition-all"
+                    >
+                      <span>{qp.icon}</span>
+                      <span>{qp.label}</span>
+                    </button>
                   ))}
                 </div>
               </div>
-            ) : (
-              /* Chat history */
-              <div className="w-full max-w-2xl space-y-4">
-                {messages.map((msg) => (
-                  <div key={msg.id} className={`flex gap-3 ${msg.role==='user'?'justify-end':'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
-                      msg.role==='user'?'bg-blue-500/10 text-slate-200 border border-blue-500/20':'bg-white/5 text-slate-300 border border-white/5'
-                    }`}>
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+            )}
+
+            {/* ===== Example Prompt Cards (empty state) ===== */}
+            {!hasGenerated && (
+              <div>
+                <p className="text-xs text-slate-400 font-medium mb-3">提示词示例</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { title: '🏙️ 城市风光', text: '未来城市天际线，日落时分，金色与紫色天空，玻璃建筑反射光线，4K超写实，电影级光影' },
+                    { title: '🎨 艺术插画', text: '梦幻森林中的小鹿，柔和的晨光穿过树叶，宫崎骏动画风格，温暖治愈的色彩' },
+                    { title: '📦 电商产品', text: '白色陶瓷咖啡杯，极简风格，柔和自然光，浅景深，干净白色背景，产品摄影' },
+                    { title: '🌟 抽象科技', text: '流动的光粒子构成数字大脑，蓝紫渐变，深邃太空背景，未来科技感，高清渲染' },
+                  ].map((ex, i) => (
+                    <div
+                      key={i}
+                      onClick={() => setPrompt(ex.text)}
+                      className="group bg-white border border-slate-100 rounded-xl p-4 cursor-pointer hover:border-blue-200 hover:shadow-md transition-all duration-200"
+                    >
+                      <p className="text-xs font-semibold text-slate-700 mb-1.5">{ex.title}</p>
+                      <p className="text-xs text-slate-400 leading-relaxed group-hover:text-slate-600 line-clamp-2">
+                        {ex.text}
+                      </p>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ===== Result Grid ===== */}
+            {hasGenerated && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm font-semibold text-slate-700">生成结果</p>
+                  <span className="text-xs text-slate-400">消耗 {totalCost} 点</span>
+                </div>
+                {loading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {Array.from({ length: imgCount }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="aspect-square rounded-2xl bg-gradient-to-br from-blue-50 to-purple-50 border border-slate-100 flex items-center justify-center animate-pulse"
+                      >
+                        <Sparkles className="h-8 w-8 text-blue-300" />
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <div
+                    className={`grid gap-4 ${
+                      imgCount <= 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'
+                    }`}
+                  >
+                    {resultImages.map((url, i) => (
+                      <div
+                        key={i}
+                        className="group relative rounded-2xl overflow-hidden bg-white border border-slate-100 shadow-sm hover:shadow-lg transition-all"
+                      >
+                        <img
+                          src={url}
+                          alt={`Result ${i + 1}`}
+                          className="w-full aspect-square object-cover"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleCopy(url)}
+                            className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs backdrop-blur"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                          <button className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs backdrop-blur">
+                            <Download className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
-        </ScrollArea>
-
-        {/* Bottom Input */}
-        <div className="border-t border-white/5 p-4 shrink-0">
-          {images.length > 0 && (
-            <div className="flex gap-2 mb-3 flex-wrap max-w-3xl mx-auto">
-              {images.map((img) => (
-                <div key={img.id} className="relative w-14 h-14 rounded-lg overflow-hidden bg-white/5 border border-white/10 group">
-                  <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
-                  <button onClick={() => removeImage(img.id)}
-                    className="absolute -top-1 -right-1 p-0.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100"><X className="h-3 w-3"/></button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="max-w-3xl mx-auto flex items-end gap-2">
-            <label className="cursor-pointer p-2.5 rounded-xl hover:bg-white/10 text-slate-500 hover:text-blue-400 transition-all shrink-0">
-              <Upload className="h-5 w-5" /><Input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" /></label>
-            <div className="flex-1 relative">
-              <Textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown}
-                placeholder="> 描述你想对图片做的操作..."
-                className="w-full resize-none rounded-2xl bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:border-blue-500/30 min-h-[44px] max-h-[100px] py-3 px-4 pr-12 text-sm" rows={1} />
-              {inputValue && (
-                <button onClick={() => setInputValue('')} className="absolute right-2 top-2 p-1 rounded-md text-slate-500 hover:text-red-400">
-                  <X className="h-3.5 w-3.5"/></button>
-              )}
-            </div>
-            <Button onClick={handleSend} disabled={(!inputValue.trim() && images.length===0) || loading}
-              size="icon" className="h-11 w-11 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-30 border-0 shrink-0">
-              <Send className="h-5 w-5 text-white"/></Button>
-          </div>
         </div>
-      </div>
+      </main>
 
-      {/* Right - Parameters Panel */}
-      <div className={`${paramsOpen ? 'w-64' : 'w-0'} bg-[#0f172a]/95 border-l border-white/5 flex flex-col transition-all duration-300 overflow-hidden shrink-0`}>
-        <div className="p-4 border-b border-white/5">
-          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">参数设置</h3>
-          <p className="text-[10px] text-slate-500">调整生成参数获得更好效果</p>
+      {/* ================================================================
+          RIGHT PANEL — 生成设置
+          ================================================================ */}
+      <aside className="w-72 shrink-0 bg-white/70 backdrop-blur border-l border-slate-200/60 overflow-y-auto">
+        <div className="p-4 border-b border-slate-100">
+          <h3 className="text-sm font-extrabold text-slate-800">生成设置</h3>
+          <p className="text-[10px] text-slate-400 mt-0.5">调整参数获得最佳效果</p>
         </div>
-        <div className="p-4 space-y-4">
+
+        <div className="p-4 space-y-5">
+          {/* 1. 模型选择 */}
           <div>
-            <label className="text-[10px] text-slate-500 uppercase">图片尺寸</label>
-            <Select value={imgSize} onValueChange={(v) => v && setImgSize(v)}>
-              <SelectTrigger className="h-8 rounded-lg bg-white/5 border-white/10 text-slate-300 text-xs mt-1"><SelectValue/></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="512x512">512 x 512</SelectItem>
-                <SelectItem value="1024x1024">1024 x 1024</SelectItem>
-                <SelectItem value="1024x768">1024 x 768</SelectItem>
-                <SelectItem value="768x1024">768 x 1024</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-[10px] text-slate-500 uppercase">生成数量</label>
-            <div className="flex gap-1 mt-1">
-              {[1,2,4].map(n => (
-                <button key={n} onClick={() => setImgCount(n)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium ${imgCount===n?'bg-blue-500/20 text-blue-400 border border-blue-500/30':'bg-white/5 text-slate-500 border border-white/5'}`}>
-                  {n}张</button>
+            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">模型选择</label>
+            <div className="mt-2 space-y-1.5">
+              {modelOptions.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedModel(m.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all ${
+                    selectedModel === m.id
+                      ? 'bg-blue-50 border border-blue-200 text-blue-700 font-semibold'
+                      : 'bg-white border border-slate-100 text-slate-600 hover:border-slate-200'
+                  }`}
+                >
+                  <div>{m.label}</div>
+                  <div className="text-[10px] opacity-60 mt-0.5">{m.desc}</div>
+                </button>
               ))}
             </div>
           </div>
+
+          {/* 2. 图片比例 */}
           <div>
-            <label className="text-[10px] text-slate-500 uppercase">负面提示词</label>
-            <Textarea value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)}
-              placeholder="模糊、低质量、变形..."
-              className="w-full resize-none rounded-lg bg-white/5 border-white/10 text-slate-300 placeholder:text-slate-600 text-xs mt-1 h-16 p-2" />
+            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">图片比例</label>
+            <div className="flex gap-1.5 mt-2">
+              {aspectRatios.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => handleAspectChange(r.id)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    aspectRatio === r.id
+                      ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                      : 'bg-white text-slate-500 border border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="pt-2 border-t border-white/5">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-slate-500">预估消耗</span>
-              <span className="text-blue-400 font-bold">{mode==='deep'?5:2} 点/张</span>
+
+          {/* 3. 图片尺寸 */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">图片尺寸</label>
+            <div className="flex gap-1.5 mt-2">
+              {sizeOptions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setImgSize(s)}
+                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
+                    imgSize === s
+                      ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                      : 'bg-white text-slate-500 border border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. 生成数量 */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">生成数量</label>
+            <div className="flex gap-1.5 mt-2">
+              {[1, 2, 4].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setImgCount(n)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    imgCount === n
+                      ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                      : 'bg-white text-slate-500 border border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  {n}张
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 5. 风格 */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">风格</label>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {styleOptions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStyle(s)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all ${
+                    style === s
+                      ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                      : 'bg-white text-slate-500 border border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 6. 提示词增强 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-[11px] font-semibold text-slate-500">提示词增强</label>
+              <p className="text-[10px] text-slate-400">自动优化提示词质量</p>
+            </div>
+            <Switch checked={enhancePrompt} onCheckedChange={setEnhancePrompt} />
+          </div>
+
+          {/* 7. 负面提示词 */}
+          <div>
+            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">负面提示词</label>
+            <Textarea
+              value={negativePrompt}
+              onChange={(e) => setNegativePrompt(e.target.value)}
+              placeholder="模糊、低质量、变形、多余的手指..."
+              className="w-full resize-none rounded-xl bg-white border border-slate-200 text-slate-600 placeholder:text-slate-300 text-xs mt-2 h-16 p-3 focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+            />
+          </div>
+
+          {/* 8. 点数消耗预估 */}
+          <div className="bg-amber-50/60 rounded-xl p-3 space-y-1.5 border border-amber-100">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">单张消耗</span>
+              <span className="text-slate-700 font-semibold">{pointsPerImage} 点</span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">本次合计</span>
-              <span className="text-white font-bold">{(mode==='deep'?5:2)*imgCount} 点</span>
+              <span className="text-slate-800 font-bold">{totalCost} 点</span>
+            </div>
+            <div className="flex justify-between text-xs border-t border-amber-200 pt-1.5">
+              <span className="text-slate-500">当前余额</span>
+              <span className={`font-bold ${points < totalCost ? 'text-red-500' : 'text-slate-800'}`}>
+                {points.toLocaleString()} 点
+              </span>
             </div>
           </div>
+
+          {/* 9. 立即生成按钮 */}
+          <Button
+            onClick={handleGenerate}
+            disabled={!prompt.trim() || loading}
+            className="w-full rounded-xl btn-brand h-10 text-sm font-semibold gap-2"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                生成中...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" /> 立即生成
+              </>
+            )}
+          </Button>
         </div>
-      </div>
+      </aside>
     </div>
   );
 }

@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("user")
+  status    String   @default("active")
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creditAccount      CreditAccount?
+  creditTransactions CreditTransaction[]
+  paymentOrders      PaymentOrder[]
+  aiTasks            AiTask[]
+  artworks           Artwork[]
+}
+
+model CreditAccount {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Int      @default(0)
+  frozen    Int      @default(0)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model CreditTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  amount       Int
+  type         String
+  balanceAfter Int
+  relatedId    String?
+  remark       String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model PaymentOrder {
+  id            String    @id @default(cuid())
+  userId        String
+  channel       String
+  outTradeNo    String    @unique
+  amountCent    Int
+  credits       Int
+  status        String    @default("pending")
+  transactionId String?
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id])
+}
+
+model PaymentChannelConfig {
+  id          String   @id @default(cuid())
+  channelCode String   @unique
+  channelName String
+  appId       String   @default("")
+  merchantId  String   @default("")
+  gatewayUrl  String   @default("")
+  notifyUrl   String   @default("")
+  returnUrl   String   @default("")
+  configJson  String   @default("{}")
+  status      String   @default("disabled")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AiModel {
+  id           String   @id @default(cuid())
+  name         String
+  provider     String
+  modelName    String
+  endpoint     String
+  apiKeyEnv    String
+  type         String   @default("image")
+  pointsPerUse Int      @default(2)
+  status       String   @default("active")
+  priority     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tasks        AiTask[]
+}
+
+model AiTask {
+  id             String         @id @default(cuid())
+  userId         String
+  modelId        String?
+  type           String         @default("text2img")
+  prompt         String
+  negativePrompt String         @default("")
+  paramsJson     String         @default("{}")
+  status         String         @default("created")
+  creditsCost    Int            @default(0)
+  creditsFrozen  Boolean        @default(false)
+  errorMsg       String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  user           User           @relation(fields: [userId], references: [id])
+  model          AiModel?       @relation(fields: [modelId], references: [id])
+  results        AiTaskResult[]
+}
+
+model AiTaskResult {
+  id        String   @id @default(cuid())
+  taskId    String
+  url       String
+  width     Int?
+  height    Int?
+  seed      Int?
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+  task      AiTask   @relation(fields: [taskId], references: [id])
+}
+
+model Artwork {
+  id        String   @id @default(cuid())
+  userId    String
+  taskId    String?
+  title     String?
+  prompt    String
+  url       String
+  width     Int?
+  height    Int?
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}

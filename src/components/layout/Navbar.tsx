@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Image, Video, Grid3X3, LogIn, Menu, X, Zap, Cpu, Coins, Plus } from 'lucide-react';
-import { getWallet } from '@/lib/wallet';
+import { Sparkles, Image, Video, Grid3X3, LogIn, Menu, X, Zap, Cpu, Coins, Plus, LogOut, User } from 'lucide-react';
 
 const navLinks = [
   { href: '/studio', label: '创作工坊', icon: Image },
@@ -13,20 +12,47 @@ const navLinks = [
   { href: '/gallery', label: '灵感广场', icon: Grid3X3 },
 ];
 
+function getToken(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const u = JSON.parse(localStorage.getItem('zj_user') || '{}');
+    return u.token || '';
+  } catch { return ''; }
+}
+
+function getCredits(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const u = JSON.parse(localStorage.getItem('zj_user') || '{}');
+    return u.user?.credits || 0;
+  } catch { return 0; }
+}
+
 export default function Navbar() {
-  const router = useRouter(); const pathname = usePathname();
+  const router = useRouter();
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [points, setPoints] = useState(0);
   const [scrolled, setScrolled] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
 
-  const refreshPoints = () => setPoints(getWallet().points);
-  useEffect(() => { refreshPoints(); const h = () => refreshPoints(); window.addEventListener('wallet-changed', h); return () => window.removeEventListener('wallet-changed', h); }, []);
-  useEffect(() => { refreshPoints(); }, [pathname]);
+  useEffect(() => {
+    setLoggedIn(!!getToken());
+    setPoints(getCredits());
+  }, [pathname]);
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('zj_user');
+    document.cookie = 'zj_token=;path=/;max-age=0';
+    setLoggedIn(false);
+    router.push('/');
+  };
 
   return (
     <nav className={`fixed inset-x-0 top-0 z-50 h-16 transition-all duration-300 ${
@@ -64,9 +90,15 @@ export default function Navbar() {
             className="hidden md:inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-400 to-purple-500 hover:from-blue-500 hover:to-purple-600 text-white border-0 h-9 px-5 shadow-md shadow-blue-400/20 font-semibold text-sm">
             <Zap className="h-4 w-4" />开始创作</Button>
 
-          <Button variant="ghost" onClick={() => router.push('/login')}
-            className="hidden md:inline-flex rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-9">
-            <LogIn className="h-4 w-4 mr-1.5" />登录</Button>
+          {loggedIn ? (
+            <Button variant="ghost" onClick={handleLogout}
+              className="hidden md:inline-flex rounded-xl text-slate-500 hover:text-red-500 hover:bg-red-50 h-9">
+              <LogOut className="h-4 w-4 mr-1.5" />退出</Button>
+          ) : (
+            <Button variant="ghost" onClick={() => router.push('/login')}
+              className="hidden md:inline-flex rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-9">
+              <LogIn className="h-4 w-4 mr-1.5" />登录</Button>
+          )}
 
           <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 rounded-xl hover:bg-slate-100 text-slate-500">
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>

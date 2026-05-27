@@ -1,81 +1,49 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createRechargeOrder, getPaymentChannelByCode } from '@/lib/db';
-import { createNativeOrder, generateOutTradeNo } from '@/lib/wechatpay';
-import { createAlipayOrder } from '@/lib/alipay';
-import { getConfig } from '@/lib/cms-config';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { ok, fail, unauthorized } from "@/lib/response";
+import { getUserFromRequest } from "@/lib/auth";
+import crypto from "crypto";
 
-// 套餐配置 - 前后端统一数据源
-const RECHARGE_PACKAGES = [
-  { id: 'pkg1', points: 100,  price: 9.9,   amountCent: 990 },
-  { id: 'pkg2', points: 500,  price: 39.9,  amountCent: 3990 },
-  { id: 'pkg3', points: 1200, price: 79.9,  amountCent: 7990 },
-  { id: 'pkg4', points: 3000, price: 169.9, amountCent: 16990 },
-  { id: 'pkg5', points: 8000, price: 399.9, amountCent: 39990 },
-  { id: 'pkg6', points: 20000,price: 899.9, amountCent: 89990 },
+const PACKAGES = [
+  { id: "pkg1", credits: 100, amountCent: 990 },
+  { id: "pkg2", credits: 500, amountCent: 3990 },
+  { id: "pkg3", credits: 1200, amountCent: 7990 },
+  { id: "pkg4", credits: 3000, amountCent: 16990 },
 ];
 
-export async function POST(req: NextRequest) {
-  try {
-    const { userId, packageId, payChannel } = await req.json();
-    
-    if (!userId || !packageId) {
-      return NextResponse.json({ error: '缺少参数 userId/packageId' }, { status: 400 });
-    }
+function genOutTradeNo(): string {
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return `ZJ${date}${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
+}
 
-    // 从CMS或默认套餐表查询套餐，不信任前端传的price/points
-    const cmsConfig = getConfig();
-    const allPackages = cmsConfig.rechargePackages?.length ? cmsConfig.rechargePackages : RECHARGE_PACKAGES;
-    const pkg = allPackages.find((p: any) => p.id === packageId);
-    if (!pkg) {
-      return NextResponse.json({ error: '套餐不存在' }, { status: 400 });
-    }
-    
-    const points = pkg.points;
-    const price = pkg.price;
-    const amountCent = Math.round(price * 100);
-    
-    const channel = payChannel || 'wechat';
-    
-    // 验证支付渠道是否启用
-    const channelConfig = getPaymentChannelByCode(channel);
-    if (channelConfig && channelConfig.status !== 'enabled') {
-      return NextResponse.json({ error: `支付渠道 ${channel} 未启用` }, { status: 400 });
-    }
-    
-    const outTradeNo = generateOutTradeNo();
-    
-    // 创建订单（后端确定的金额和点数）
-    createRechargeOrder({ userId, outTradeNo, amountCent, points });
-    
-    let result: any;
-    
-    if (channel === 'alipay') {
-      result = await createAlipayOrder({
-        outTradeNo,
-        subject: `造境 AI-${points}点充值`,
-        totalAmount: price,
-        notifyUrl: channelConfig?.notifyUrl || '',
-      });
-    } else {
-      result = await createNativeOrder({
-        outTradeNo,
-        description: `造境 AI-${points}点充值`,
-        amount: { total: amountCent, currency: 'CNY' },
-      }, channelConfig ? { channelConfig: { appId: channelConfig.appId, merchantId: channelConfig.merchantId, notifyUrl: channelConfig.notifyUrl, configJson: channelConfig.configJson } } : undefined);
-    }
-    
-    if (!result.success) {
-      return NextResponse.json({ error: result.error || '创建支付失败' }, { status: 500 });
-    }
-    
-    return NextResponse.json({
-      success: true,
-      orderNo: outTradeNo,
-      codeUrl: result.codeUrl,
-      payChannel: channel,
-      testMode: result.testMode || false,
-    });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
+export async function POST(req: NextRequest) {
+  const user = await getUserFromRequest(req);
+  if (!user) return unauthorized();
+
+  const { packageId, channel } = await req.json();
+  if (!packageId || !channel) return fail("缺少参数");
+
+  const pkg = PACKAGES.find((p) => p.id === packageId);
+  if (!pkg) return fail("无效套餐");
+
+  const channelConfig = await prisma.paymentChannelConfig.findUnique({ where: { channelCode: channel } });
+  if (!channelConfig || channelConfig.status !== "enabled") return fail(`支付渠道 ${channel} 不可用`);
+
+  const outTradeNo = genOutTradeNo();
+
+  const order = await prisma.paymentOrder.create({
+    data: {
+      userId: user.userId,
+      channel,
+      outTradeNo,
+      amountCent: pkg.amountCent,
+      credits: pkg.credits,
+      status: "pending",
+    },
+  });
+
+  // Mock 支付链接（生产：调用微信/支付宝接口）
+  const payUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=ZAOJING_PAY_${outTradeNo}`;
+
+  return ok({ orderNo: outTradeNo, payUrl, amountCent: pkg.amountCent, credits: pkg.credits });
 }
