@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#f8fafc] text-slate-800">
+      <body className="min-h-full flex flex-col bg-[#0a0e1a] text-slate-200">
         <TooltipProvider>
           <LayoutWrapper>{children}</LayoutWrapper>
           <Toaster richColors theme="light" position="top-center" />
